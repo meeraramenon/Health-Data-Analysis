@@ -25,7 +25,7 @@ from load_external_data import (
     INCOME_GROUP_CODE_TO_LABEL,
 )
 
-LOG_DIR = "logs"
+LOG_DIR = "src/logs"
 
 
 def _write_log(filename: str, lines: list[str]) -> None:

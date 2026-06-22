@@ -52,6 +52,12 @@ MANUAL_COUNTRY_CODE_OVERRIDES = {
     "Occupied Palestinian Territory": "PSE",       # pycountry: Palestine, State of
     "Swaziland": "SWZ",                            # pycountry: Eswatini
     "Turkey": "TUR",                               # pycountry: Türkiye
+    # Added while processing the FAO consumption file (load_exploration_data.py):
+    "Bolivia (Plurinational State of)": "BOL",     # pycountry: Bolivia, Plurinational State of
+    "Iran (Islamic Republic of)": "IRN",           # pycountry: Iran, Islamic Republic of
+    "Netherlands (Kingdom of the)": "NLD",         # pycountry: Netherlands
+    "Republic of Korea": "KOR",                    # pycountry: Korea, Republic of
+    "Venezuela (Bolivarian Republic of)": "VEN",   # pycountry: Venezuela, Bolivarian Republic of
 }
 
 
