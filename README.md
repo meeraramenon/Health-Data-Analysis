@@ -1,8 +1,58 @@
 # Health Data Analysis Pipeline — README
 
+## HOW TO RUN EVERYTHING, FROM A COMPLETELY COLD START
+
+If you're lost, start here. Every script below assumes you're sitting in
+the `project/` folder in a terminal. Run them **in this exact order** -
+each one depends on files the previous one created.
+
+```bash
+cd project
+
+# STAGE 1 - cleans the original 3 health sheets, merges in Continent, WHO
+# Region, UHC, Gini, Income Group. Produces the 3 files in data/final/.
+python3 src/main.py
+
+# STAGE 2 - builds the country typology (5 clusters from k-means).
+# Produces files in data/analysis/.
+python3 src/typology_main.py
+
+# STAGE 3 - runs the Equality and Access Hypothesis tests.
+python3 src/hypothesis_main.py
+
+# STAGE 4a - the convergence/dispersion (CV) analysis over time.
+python3 src/convergence_main.py
+
+# STAGE 4b - the gender gap analysis (depends on Stage 4a's output).
+python3 src/gender_main.py
+
+# STAGE 5 - the equality follow-up (sugar/alcohol/inactivity) + the 3 free
+# exploration checks (cluster robustness, convergence by income group,
+# gender gap by cluster).
+python3 src/exploration_main.py
+```
+
+That's the entire analysis, start to finish. After this, every CSV in
+`data/analysis/` and `data/final/` is up to date and ready for the Altair
+visuals (see "STAGE 6" further down, and the `visuals/` folder).
+
+**If you only want to re-check one specific number** (not re-run
+everything): every stage's script can be run on its own as long as the
+stages before it have been run at least once - the CSVs it depends on
+just need to already exist in `data/final/`/`data/analysis/`.
+
+**If something errors immediately on a fresh machine**, it's almost
+certainly a missing Python package. Run this once first:
+```bash
+pip install pandas numpy scipy scikit-learn pycountry pycountry-convert openpyxl altair vl-convert-python --break-system-packages
+```
+
+---
+
 This README is updated after every completed stage. It currently covers:
-**Data Preparation → Typology (Thread 1) → Equality & Access Hypothesis
-tests (Threads 3 & 4).**
+**Data Preparation -> Typology -> Equality/Access Hypotheses -> Convergence/
+Gender -> Equality Follow-Up & Free Exploration -> Altair Visuals (in progress).**
+
 
 ---
 
@@ -273,14 +323,101 @@ python3 src/gender_main.py           # Stage 4b
 
 ---
 
+## STAGE 6: Altair Visuals (in progress)
+
+### A note on HTML vs PNG - both ARE Altair
+Altair doesn't render pixels itself - it generates a Vega-Lite spec that
+needs a renderer. The standard, native way to view an Altair chart is as
+embedded HTML/JavaScript (this is how it displays in Jupyter, on
+documentation sites, everywhere). Calling `chart.save("file.html")` is
+using Altair exactly as designed, not a workaround. PNG is a static
+snapshot of that SAME chart object, for embedding in the written report.
+Every visual below has both - interactivity (sliders, clickable legends)
+only exists in the HTML version, and is itself evidence for the "filtering
+options"/"dashboard elements" marking criteria.
+
+### Design system
+Applies to every chart, defined once in `src/charts/chart_theme.py`: deep
+indigo + a single warm coral accent reserved for "this is the finding",
+serif titles paired with sans body text, colourblind-safe Viridis/PuOr/
+Dark2 scales depending on data type, and every chart title states the
+FINDING in plain language rather than the chart type (e.g. "Five Distinct
+Health Journeys, Not One Global Story", not "Cluster Scatter Plot"). Full
+reasoning in the module's docstring.
+
+### Folder structure - visuals are segregated by thread, not just numbered
+
+```
+visuals/
+├── thread1_typology/                  Thread 1: what TYPES of countries exist?
+│   ├── 01_choropleth.html / .png         - geographic view of Metabolic Risk Index
+│   ├── 02_cluster_scatter.html / .png    - PCA proof the 5 clusters are distinct
+│   └── 03_trajectory_small_multiples...  - what each cluster's journey looks like
+├── thread2_convergence/                Thread 2: is the gap between countries closing?
+│   └── 04_convergence_trend...           - CV over time + trend extrapolation
+├── thread3_equality_hypothesis/        Thread 3: does income EQUALITY explain obesity?
+│   └── 05_equality_scatter...            - obesity residual vs Gini
+├── thread4_access_hypothesis/          Thread 4: does healthcare ACCESS explain BP?
+│   └── 06_access_scatter...              - BP residual vs UHC
+├── thread5_gender/                     Thread 5: is the male/female gap closing?
+│   └── 07_gender_gap...                  - diverging bars + trend line
+├── methodology_checks/                 Bonus: methodology critique chart
+│   └── 08_population_weighted...         - PARKED, not built (see Stage 4a note)
+└── interactive_dashboard/              Final: all threads, linked, built LAST
+    └── 09_dashboard.html
+```
+
+Each subfolder's name states the analysis question it answers - opening
+the folder tells you what you're looking at before you even open a file.
+
+### Chart-by-chart map: file -> thread -> question -> what it shows
+
+| # | File | Thread | Analysis question | What the chart shows |
+|---|---|---|---|---|
+| 1 | `thread1_typology/01_choropleth` | 1 - Typology | What does the global pattern look like geographically, and how has it moved? | World map, Metabolic Risk Index, year slider + metric dropdown |
+| 2 | `thread1_typology/02_cluster_scatter` | 1 - Typology | Do countries really sort into distinct, data-driven groups? | PCA-reduced scatter, 5 clusters, click-to-isolate legend |
+| 3 | `thread1_typology/03_trajectory_small_multiples` | 1 - Typology | What does each cluster's actual 35-year journey look like? | 5-panel small multiples, 3 disease lines per panel |
+| 4 | `thread2_convergence/04_convergence_trend` | 2 - Convergence | Is the gap between the healthiest and sickest countries widening or narrowing? | CV-over-time line chart, 3 diseases, + 10-year linear extrapolation |
+| 5 | `thread3_equality_hypothesis/05_equality_scatter` | 3 - Equality Hypothesis | Does income EQUALITY (not level) explain why some rich countries stay thin? | Obesity residual vs. Gini scatter, coloured by income group |
+| 6 | `thread4_access_hypothesis/06_access_scatter` | 4 - Access Hypothesis | Does healthcare ACCESS (not spending) explain why some high-obesity countries escape high BP? | BP residual vs. UHC scatter, coloured by region |
+| 7 | `thread5_gender/07_gender_gap` | 5 - Gender | Is the male/female gap widening or narrowing, and does it track Thread 2? | Diverging bar chart + trend line over time |
+| 8 | `methodology_checks/08_population_weighted` | Bonus critique | Does population-weighting change the global average story? | PARKED - not built, needs population data (see Stage 4a) |
+| 9 | `interactive_dashboard/09_dashboard` | All threads | Can the reader explore the whole argument themselves? | Linked Year/Sex/Region filters driving 2-3 charts together |
+
+### How to build/view any chart
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_01_choropleth import build_choropleth
+
+register_theme()                      # apply the design system - do this once
+combined = pd.read_csv('data/final/combined_panel_with_risk_index.csv')
+chart = build_choropleth(combined)
+chart.save('visuals/thread1_typology/01_choropleth.html')   # interactive - open in any browser
+chart.save('visuals/thread1_typology/01_choropleth.png', ppi=150)  # static - for the written report
+```
+
+Each chart module lives in `src/charts/` and exposes a `build_<name>()`
+function - the module docstring explains the specific design choices made
+for that chart.
+
+| # | Code file | Status |
+|---|---|---|
+| 1 | `chart_01_choropleth.py` | Done |
+| 2 | `chart_02_cluster_scatter.py` | Done |
+| 3 | `chart_03_trajectory_small_multiples.py` | Done |
+| 4-9 | remaining charts | Not yet built |
+
+---
+
 ## NEXT STEP: Continue building the remaining Altair visuals
 
 Population-weighted comparison chart: dropped for now (parked, no
 population data sourced yet) - can revisit later if needed.
 
-Visual #1 (choropleth) is complete (`visuals/01_choropleth.html` +
-static PNG). Remaining visuals to build, in order:
-- Cluster scatter + trajectory small multiples (Thread 1)
+Visuals #1-3 (Thread 1: choropleth, cluster scatter, trajectory small
+multiples) are complete. Remaining visuals to build, in order:
 - Convergence line chart with trend extrapolation (Thread 2)
 - Equality/Access hypothesis scatters (Threads 3/4)
 - Sex-gap diverging bar + trend line (Thread 5)

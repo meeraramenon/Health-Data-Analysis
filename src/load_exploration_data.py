@@ -29,8 +29,8 @@ import sys
 sys.path.insert(0, "src")
 from country_codes import get_country_code_lookup
 
-CONSUMPTION_RAW_PATH = "data/external/consumption_fao_raw.xlsx"
-INACTIVITY_RAW_PATH = "data/external/physical_inactivity_who_raw.csv"
+CONSUMPTION_RAW_PATH = "data/external/consumption.xlsx"
+INACTIVITY_RAW_PATH = "data/external/physical_inactivity.csv"
 
 FAO_ITEMS_OF_INTEREST = {
     "Sugar & Sweeteners": "Sugar_Sweeteners_kg_per_capita",
