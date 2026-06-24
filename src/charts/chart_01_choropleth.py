@@ -33,8 +33,11 @@ import altair as alt
 # datasets; 7000 simple rows is not that, so it's safely disabled here.
 alt.data_transformers.disable_max_rows()
 
+import os
 import sys
-sys.path.insert(0, "src")
+_SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
 from geo_lookup import get_alpha3_to_numeric_id_lookup
 from charts.chart_theme import SEQUENTIAL_SCHEME, CHART_WIDTH, CHART_HEIGHT, make_title, CORAL
 
@@ -67,9 +70,11 @@ def _load_geo_data() -> alt.Data:
 
 def _prepare_data(combined_panel: pd.DataFrame) -> pd.DataFrame:
     """
-    Adds the numeric map ID to a copy of the combined panel, restricted to
-    1980-2014 (the common window) and only the 4 columns the map actually
-    needs, to keep the embedded chart data small.
+    Pivots health data to wide format: one row per country, with year-specific
+    columns BP_1980 ... MRI_2014. One row per map_id means transform_lookup
+    picks it unambiguously. Vega's dynamic field access
+    (datum['MRI_' + selected_year]) then picks the right year client-side,
+    so no transform_filter is needed and the year slider works correctly.
     """
     df = combined_panel[(combined_panel["Year"] >= 1980) & (combined_panel["Year"] <= 2014)].copy()
 
@@ -78,17 +83,34 @@ def _prepare_data(combined_panel: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=["map_id"])
     df["map_id"] = df["map_id"].astype(int)
 
-    needed_cols = ["map_id", "Country", "Year"] + list(METRIC_OPTIONS.values())
-    return df[needed_cols]
+    prefix_map = {
+        "Metabolic_Risk_Index": "MRI",
+        "BP_Prevalence_pct": "BP",
+        "Obesity_Prevalence_pct": "Obesity",
+        "Diabetes_Prevalence_pct": "Diabetes",
+    }
+    metric_cols = list(METRIC_OPTIONS.values())
+
+    wide = df.pivot_table(
+        index=["map_id", "Country"],
+        columns="Year",
+        values=metric_cols,
+        aggfunc="first",
+    )
+    wide.columns = [f"{prefix_map[m]}_{y}" for m, y in wide.columns]
+    return wide.reset_index()
 
 
 def build_choropleth(combined_panel: pd.DataFrame) -> alt.Chart:
     """
     Returns the complete, interactive choropleth chart. Save with
     chart.save("path.html") for an interactive version, or
-    chart.save("path.png") for a static snapshot (PNG only captures
-    whatever the sliders are set to at save time, since PNG has no
-    interactivity).
+    chart.save("path.png") for a static snapshot.
+
+    The year slider works by embedding all years as separate columns
+    (BP_1980 ... MRI_2014) in the lookup table — one row per country —
+    and using Vega's dynamic field access datum['MRI_' + selected_year]
+    to pick the right year entirely client-side.
     """
     data = _prepare_data(combined_panel)
     world_shapes = _load_geo_data()
@@ -98,40 +120,37 @@ def build_choropleth(combined_panel: pd.DataFrame) -> alt.Chart:
         value=2014,
         bind=alt.binding_range(min=1980, max=2014, step=1, name="Year: "),
     )
-
-    # Vega-Lite dropdown binding for metric selection. The field name itself
-    # is swapped via a calculate transform below, driven by this parameter.
     metric_param = alt.param(
         name="selected_metric_label",
         value="Metabolic Risk Index",
         bind=alt.binding_select(options=list(METRIC_OPTIONS.keys()), name="Colour by: "),
     )
 
-    # Lookup transform pulls the matching row's data onto each map shape by map_id.
-    lookup_fields = ["Country", "Year"] + list(METRIC_OPTIONS.values())
+    # All year-specific columns that must be pulled through the lookup
+    year_cols = [
+        f"{p}_{y}"
+        for p in ["BP", "Obesity", "Diabetes", "MRI"]
+        for y in range(1980, 2015)
+    ]
 
-    base = (
+    # Vega evaluates datum['MRI_' + selected_year] as datum['MRI_2014'] when
+    # the slider is at 2014 — correct year picked without any transform_filter.
+    calc_expr = (
+        "selected_metric_label == 'Metabolic Risk Index' ? datum['MRI_' + selected_year] : "
+        "selected_metric_label == 'Blood Pressure (%)' ? datum['BP_' + selected_year] : "
+        "selected_metric_label == 'Obesity (%)' ? datum['Obesity_' + selected_year] : "
+        "datum['Diabetes_' + selected_year]"
+    )
+
+    chart = (
         alt.Chart(world_shapes)
         .mark_geoshape(stroke="white", strokeWidth=0.5)
         .transform_lookup(
             lookup="id",
-            from_=alt.LookupData(data=data, key="map_id", fields=lookup_fields),
+            from_=alt.LookupData(data=data, key="map_id", fields=["Country"] + year_cols),
         )
-        .transform_filter(alt.datum.Year == year_param)
-        .add_params(year_param, metric_param)
-    )
-
-    # Build one calculate expression per metric option, chained via nested
-    # if/else on the metric_param value, so a single colour channel can
-    # represent whichever metric the dropdown currently selects.
-    calc_expr = "datum['" + METRIC_OPTIONS["Diabetes (%)"] + "']"
-    for label in ["Obesity (%)", "Blood Pressure (%)", "Metabolic Risk Index"]:
-        field = METRIC_OPTIONS[label]
-        calc_expr = f"selected_metric_label == '{label}' ? datum['{field}'] : ({calc_expr})"
-
-    chart = (
-        base
         .transform_calculate(value_to_show=calc_expr)
+        .add_params(year_param, metric_param)
         .encode(
             color=alt.Color(
                 "value_to_show:Q",
@@ -158,7 +177,6 @@ def build_choropleth(combined_panel: pd.DataFrame) -> alt.Chart:
             ),
         )
     )
-
     return chart
 
 

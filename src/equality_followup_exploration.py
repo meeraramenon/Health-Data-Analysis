@@ -29,8 +29,18 @@ def build_followup_snapshot(country_typology: pd.DataFrame,
     """
     Builds a small snapshot table for ONLY the Wealthy Decouplers cluster:
     Country, Obesity_End (already known), Sugar_Sweeteners_kg_per_capita,
-    Alcohol_kg_per_capita (FAO, ~2013 snapshot), Physical_Inactivity_pct
-    (WHO, most recent available year per country).
+    Alcohol_kg_per_capita (FAO, fixed 2013 snapshot - the last year FAO's
+    file covers), Physical_Inactivity_pct (WHO, each country's own most
+    recent available year - NOT a fixed year across countries).
+
+    IMPORTANT - NO VALUE HERE IS CALCULATED, ESTIMATED, OR CARRIED BACK.
+    Every number is a real, directly observed value for the year shown.
+    The actual year used is exposed explicitly in Inactivity_Year for this
+    reason: FAO's snapshot is a single fixed year (2013) for every country,
+    but the inactivity snapshot takes each country's own latest available
+    year, which is NOT necessarily the same year for every country (e.g.
+    one country's latest reported year might be 2019, another's 2022) -
+    exposing the actual year lets this be checked rather than assumed.
     """
     wealthy = country_typology[country_typology["Cluster_Name"] == "Wealthy Decouplers"].copy()
 
@@ -41,15 +51,17 @@ def build_followup_snapshot(country_typology: pd.DataFrame,
         inactivity_long.sort_values("Year")
         .groupby("Country_Code", as_index=False)
         .last()
-        .drop(columns="Year")
+        .rename(columns={"Year": "Inactivity_Year"})
     )
 
     result = wealthy.merge(fao_snapshot, on="Country_Code", how="left")
     result = result.merge(inactivity_snapshot, on="Country_Code", how="left")
+    result["Sugar_Alcohol_Year"] = YEAR_FOR_SNAPSHOT
 
     return result[[
         "Country", "Country_Code", "Obesity_End",
-        "Sugar_Sweeteners_kg_per_capita", "Alcohol_kg_per_capita", "Physical_Inactivity_pct",
+        "Sugar_Sweeteners_kg_per_capita", "Alcohol_kg_per_capita", "Sugar_Alcohol_Year",
+        "Physical_Inactivity_pct", "Inactivity_Year",
     ]].sort_values("Obesity_End")
 
 

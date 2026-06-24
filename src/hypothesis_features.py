@@ -69,7 +69,7 @@ def build_hypothesis_snapshot(country_typology: pd.DataFrame, combined_panel: pd
 
     gini_and_income = (
         combined_panel.sort_values("Year")
-        .groupby("Country")[["Gini_Index", "Gini_Year", "Income_Group"]]
+        .groupby("Country")[["Gini_Index", "Gini_Year", "Income_Group", "WHO_Region"]]
         .last()
     )
 

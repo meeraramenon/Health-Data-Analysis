@@ -323,7 +323,20 @@ python3 src/gender_main.py           # Stage 4b
 
 ---
 
-## STAGE 6: Altair Visuals (9 of 9 core charts complete)
+## STAGE 6: Altair Visuals (12 of 12 complete)
+
+### Fix recorded: relative import path bug (full detail in CLAUDE.md)
+Every chart module originally used `sys.path.insert(0, "src")` - a path
+that only resolves if Python happens to be launched from the project/
+folder. Running any chart module from elsewhere (a different directory,
+or just `python3 chart_01_choropleth.py` from inside `src/charts/` itself)
+caused `ModuleNotFoundError: No module named 'geo_lookup'` and similar.
+
+**Fixed in every chart module** using an absolute path derived from
+`__file__`, which always points to the real file location regardless of
+working directory - see `CLAUDE.md` for the full explanation and how it
+was verified (tested by running the full build script from `/tmp` and `/`,
+the two most unrelated directories possible).
 
 ### A note on HTML vs PNG - both ARE Altair
 Altair doesn't render pixels itself - it generates a Vega-Lite spec that
@@ -332,18 +345,20 @@ embedded HTML/JavaScript (this is how it displays in Jupyter, on
 documentation sites, everywhere). Calling `chart.save("file.html")` is
 using Altair exactly as designed, not a workaround. PNG is a static
 snapshot of that SAME chart object, for embedding in the written report.
-Every visual below has both - interactivity (sliders, clickable legends)
-only exists in the HTML version, and is itself evidence for the "filtering
-options"/"dashboard elements" marking criteria.
+Every visual below has both - interactivity (sliders, clickable legends,
+the dashboard's click-to-reveal) only exists in the HTML version, and is
+itself evidence for the "filtering options"/"dashboard elements" marking
+criteria. The dashboard's PNG snapshot shows its empty default state (no
+country clicked yet) since a static image cannot capture a click event -
+this is expected, not a bug.
 
 ### Design system
 Applies to every chart, defined once in `src/charts/chart_theme.py`: deep
 indigo + a single warm coral accent reserved for "this is the finding",
 serif titles paired with sans body text, colourblind-safe Viridis/PuOr/
 Dark2 scales depending on data type, and every chart title states the
-FINDING in plain language rather than the chart type (e.g. "Five Distinct
-Health Journeys, Not One Global Story", not "Cluster Scatter Plot"). Full
-reasoning in the module's docstring.
+FINDING in plain language rather than the chart type. Full reasoning in
+the module's docstring.
 
 ### Folder structure - visuals are segregated by thread, not just numbered
 
@@ -357,15 +372,17 @@ visuals/
 │   └── 04_convergence_trend.html / .png
 ├── thread3_equality_hypothesis/        Thread 3: does income EQUALITY explain obesity?
 │   ├── 05_equality_scatter.html / .png        - the main hypothesis test
-│   └── 08_equality_followup.html / .png       - the SELF-CORRECTION chart (see below)
+│   └── 08_equality_followup.html / .png       - the SELF-CORRECTION chart
 ├── thread4_access_hypothesis/          Thread 4: does healthcare ACCESS explain BP?
 │   └── 06_access_scatter.html / .png
 ├── thread5_gender/                     Thread 5: is the male/female gap closing?
 │   └── 09_gender_gap.html / .png
-├── supplementary_overview/             Not tied to one hypothesis - scene-setting
-│   └── 07_risk_leaderboard.html / .png
-└── interactive_dashboard/              Final: all threads, linked, built LAST
-    └── 10_dashboard.html (not yet built)
+├── supplementary_overview/             Not tied to one hypothesis - extra depth
+│   ├── 07_risk_leaderboard.html / .png
+│   ├── 11_convergence_by_income.html / .png   - Stage 5 free exploration
+│   └── 12_gender_gap_by_cluster.html / .png   - Stage 5 free exploration
+└── interactive_dashboard/              All threads, linked, built LAST
+    └── 10_dashboard.html / .png
 ```
 
 ### The self-correction chart - a genuine storytelling element
@@ -376,11 +393,22 @@ the UK/USA don't, three follow-up candidates (sugar, alcohol, physical
 inactivity) were tested - and shown honestly NOT to explain it either. The
 physical inactivity panel is the most striking: Japan (50.6%) and Korea
 (60.7%) report MORE inactivity than the UK (21.9%) and US (36.4%) - the
-opposite of intuition. This chart exists specifically so the report can
-narrate "I tested it, was wrong, tested the next candidate, was wrong
-again" AS a chart, not just as prose - this is the kind of self-correction
-moment that demonstrates real critical thinking rather than a tidy,
-pre-decided narrative.
+opposite of intuition. Every number in this chart is a real observed
+value (2013 for sugar/alcohol, 2022 for inactivity - see CLAUDE.md for the
+full no-fabrication explanation), with the exact year exposed in the data
+(`Sugar_Alcohol_Year`, `Inactivity_Year` columns) for verification.
+
+### The interactive dashboard (Chart 10)
+
+Two linked panels: an overview scatter (Obesity vs. BP, coloured by
+cluster) filterable by a WHO Region dropdown, and a detail panel that
+stays empty until the reader CLICKS a point - clicking draws that
+country's full 1980-2014 trajectory across all 3 diseases. This is the
+"drill from overview to detail" pattern, and the click-to-reveal design
+is deliberate: showing all 200 trajectories at once (rather than one
+on demand) would be unreadable, which is exactly the problem the Thread 1
+small-multiples chart already solved differently (by aggregating to 5
+clusters instead of individual countries).
 
 ### Chart-by-chart map: file -> thread -> question -> what it shows
 
@@ -395,14 +423,17 @@ pre-decided narrative.
 | 7 | `supplementary_overview/07_risk_leaderboard` | Scene-setting | Which specific countries anchor the highest/lowest risk? | Diverging Top-10/Bottom-10 bar chart, composite Risk Index |
 | 8 | `thread3_equality_hypothesis/08_equality_followup` | 3 - Equality Hypothesis (follow-up) | If not equality, then sugar/alcohol/inactivity? | 3-panel comparison, anomaly countries only - the self-correction chart |
 | 9 | `thread5_gender/09_gender_gap` | 5 - Gender | Is the male/female gap widening or narrowing? | Diverging bars (1980 vs 2014) + full trend line, side by side |
-| 10 | `interactive_dashboard/10_dashboard` | All threads | Can the reader explore the whole argument themselves? | NOT YET BUILT - linked Year/Region filters driving multiple charts |
+| 10 | `interactive_dashboard/10_dashboard` | All threads | Can the reader explore the whole argument themselves? | Linked WHO Region filter + click-to-reveal country trajectory |
+| 11 | `supplementary_overview/11_convergence_by_income` | 2 - Convergence (follow-up) | Is convergence uniform across income tiers? | 4-line chart - reveals the stuck Lower-middle-income tier |
+| 12 | `supplementary_overview/12_gender_gap_by_cluster` | 5 - Gender (follow-up) | Is the widening gender gap uniform across clusters? | Diverging bar chart - reveals it's bidirectional, not universal |
 
 ### Exact runnable code for every chart
 
-Each block below is copy-paste runnable on its own from the `project/`
-folder (each one re-applies the theme and reads only the CSVs it needs).
-All of them together are also in `src/charts/build_all_charts.py` - run
-`python3 src/charts/build_all_charts.py` to rebuild everything in one go.
+Each block below is copy-paste runnable on its own from ANY directory now
+(the path fix above made every chart module location-independent). All of
+them together are also in `src/charts/build_all_charts.py` - run
+`python3 src/charts/build_all_charts.py` (from anywhere) to rebuild
+everything in one go.
 
 **Chart 1 - Choropleth**
 ```python
@@ -546,24 +577,70 @@ chart.save('visuals/thread5_gender/09_gender_gap.html')
 chart.save('visuals/thread5_gender/09_gender_gap.png', ppi=150)
 ```
 
-**Or just rebuild everything at once:**
+**Chart 10 - Interactive dashboard**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_10_dashboard import build_dashboard
+
+register_theme()
+country_typology = pd.read_csv('data/analysis/country_typology.csv')
+combined = pd.read_csv('data/final/combined_panel_with_risk_index.csv')
+
+chart = build_dashboard(country_typology, combined)
+chart.save('visuals/interactive_dashboard/10_dashboard.html')
+chart.save('visuals/interactive_dashboard/10_dashboard.png', ppi=150)
+```
+
+**Chart 11 - Convergence by income group (supplementary)**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_11_convergence_by_income import build_convergence_by_income_chart
+
+register_theme()
+by_income = pd.read_csv('data/analysis/convergence_by_income_group.csv')
+
+chart = build_convergence_by_income_chart(by_income)
+chart.save('visuals/supplementary_overview/11_convergence_by_income.html')
+chart.save('visuals/supplementary_overview/11_convergence_by_income.png', ppi=150)
+```
+
+**Chart 12 - Gender gap by cluster (supplementary)**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_12_gender_gap_by_cluster import build_gender_gap_by_cluster_chart
+
+register_theme()
+by_cluster = pd.read_csv('data/analysis/gender_gap_by_cluster.csv')
+
+chart = build_gender_gap_by_cluster_chart(by_cluster)
+chart.save('visuals/supplementary_overview/12_gender_gap_by_cluster.html')
+chart.save('visuals/supplementary_overview/12_gender_gap_by_cluster.png', ppi=150)
+```
+
+**Or just rebuild everything at once, from anywhere:**
 ```bash
 python3 src/charts/build_all_charts.py
 ```
 
 ---
 
-## NEXT STEP: The interactive linked dashboard (Chart 10, built last)
-
-All 9 thread-specific/supplementary charts are done. The only remaining
-visual is the final interactive dashboard: Year/Region filters driving
-2-3 of the existing charts together in one linked view, built last because
-it reuses the individual charts rather than introducing new analysis.
+## NEXT STEP: All analysis and all 12 visuals are complete
 
 Population-weighted comparison chart: still parked (no population data
 sourced) - can revisit later if needed.
 
-Possible further additions (not required, but available if more visuals
-are wanted for the report, per the "explore as much as possible" goal):
-- A small chart for the convergence-by-income-group breakdown (Stage 5)
-- A small chart for the gender-gap-by-cluster breakdown (Stage 5)
+Everything else in the locked plan is done: 5 analytical threads, 1
+targeted follow-up, 3 free-exploration checks, and 12 Altair visuals
+(9 core + 1 self-correction story chart + 2 supplementary depth charts),
+all interactive where it adds value, all colourblind-safe, all titled by
+finding rather than chart type.
+
+**The only remaining step is writing the ~4000-word report itself**,
+using this README, `CLAUDE.md`, and the `data/analysis/` CSVs as the
+factual source of truth for every number quoted.
