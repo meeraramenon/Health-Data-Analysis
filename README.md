@@ -323,7 +323,7 @@ python3 src/gender_main.py           # Stage 4b
 
 ---
 
-## STAGE 6: Altair Visuals (in progress)
+## STAGE 6: Altair Visuals (9 of 9 core charts complete)
 
 ### A note on HTML vs PNG - both ARE Altair
 Altair doesn't render pixels itself - it generates a Vega-Lite spec that
@@ -350,82 +350,220 @@ reasoning in the module's docstring.
 ```
 visuals/
 ├── thread1_typology/                  Thread 1: what TYPES of countries exist?
-│   ├── 01_choropleth.html / .png         - geographic view of Metabolic Risk Index
-│   ├── 02_cluster_scatter.html / .png    - PCA proof the 5 clusters are distinct
-│   └── 03_trajectory_small_multiples...  - what each cluster's journey looks like
+│   ├── 01_choropleth.html / _static_2014.png
+│   ├── 02_cluster_scatter.html / .png
+│   └── 03_trajectory_small_multiples.html / .png
 ├── thread2_convergence/                Thread 2: is the gap between countries closing?
-│   └── 04_convergence_trend...           - CV over time + trend extrapolation
+│   └── 04_convergence_trend.html / .png
 ├── thread3_equality_hypothesis/        Thread 3: does income EQUALITY explain obesity?
-│   └── 05_equality_scatter...            - obesity residual vs Gini
+│   ├── 05_equality_scatter.html / .png        - the main hypothesis test
+│   └── 08_equality_followup.html / .png       - the SELF-CORRECTION chart (see below)
 ├── thread4_access_hypothesis/          Thread 4: does healthcare ACCESS explain BP?
-│   └── 06_access_scatter...              - BP residual vs UHC
+│   └── 06_access_scatter.html / .png
 ├── thread5_gender/                     Thread 5: is the male/female gap closing?
-│   └── 07_gender_gap...                  - diverging bars + trend line
-├── methodology_checks/                 Bonus: methodology critique chart
-│   └── 08_population_weighted...         - PARKED, not built (see Stage 4a note)
+│   └── 09_gender_gap.html / .png
+├── supplementary_overview/             Not tied to one hypothesis - scene-setting
+│   └── 07_risk_leaderboard.html / .png
 └── interactive_dashboard/              Final: all threads, linked, built LAST
-    └── 09_dashboard.html
+    └── 10_dashboard.html (not yet built)
 ```
 
-Each subfolder's name states the analysis question it answers - opening
-the folder tells you what you're looking at before you even open a file.
+### The self-correction chart - a genuine storytelling element
+
+Chart 8 documents a real moment in the analysis: after the Equality
+Hypothesis (Thread 3) failed to explain why Japan/Korea stay thin while
+the UK/USA don't, three follow-up candidates (sugar, alcohol, physical
+inactivity) were tested - and shown honestly NOT to explain it either. The
+physical inactivity panel is the most striking: Japan (50.6%) and Korea
+(60.7%) report MORE inactivity than the UK (21.9%) and US (36.4%) - the
+opposite of intuition. This chart exists specifically so the report can
+narrate "I tested it, was wrong, tested the next candidate, was wrong
+again" AS a chart, not just as prose - this is the kind of self-correction
+moment that demonstrates real critical thinking rather than a tidy,
+pre-decided narrative.
 
 ### Chart-by-chart map: file -> thread -> question -> what it shows
 
 | # | File | Thread | Analysis question | What the chart shows |
 |---|---|---|---|---|
-| 1 | `thread1_typology/01_choropleth` | 1 - Typology | What does the global pattern look like geographically, and how has it moved? | World map, Metabolic Risk Index, year slider + metric dropdown |
+| 1 | `thread1_typology/01_choropleth` | 1 - Typology | What does the pattern look like geographically, and how has it moved? | World map, Metabolic Risk Index, year slider + metric dropdown |
 | 2 | `thread1_typology/02_cluster_scatter` | 1 - Typology | Do countries really sort into distinct, data-driven groups? | PCA-reduced scatter, 5 clusters, click-to-isolate legend |
 | 3 | `thread1_typology/03_trajectory_small_multiples` | 1 - Typology | What does each cluster's actual 35-year journey look like? | 5-panel small multiples, 3 disease lines per panel |
-| 4 | `thread2_convergence/04_convergence_trend` | 2 - Convergence | Is the gap between the healthiest and sickest countries widening or narrowing? | CV-over-time line chart, 3 diseases, + 10-year linear extrapolation |
-| 5 | `thread3_equality_hypothesis/05_equality_scatter` | 3 - Equality Hypothesis | Does income EQUALITY (not level) explain why some rich countries stay thin? | Obesity residual vs. Gini scatter, coloured by income group |
-| 6 | `thread4_access_hypothesis/06_access_scatter` | 4 - Access Hypothesis | Does healthcare ACCESS (not spending) explain why some high-obesity countries escape high BP? | BP residual vs. UHC scatter, coloured by region |
-| 7 | `thread5_gender/07_gender_gap` | 5 - Gender | Is the male/female gap widening or narrowing, and does it track Thread 2? | Diverging bar chart + trend line over time |
-| 8 | `methodology_checks/08_population_weighted` | Bonus critique | Does population-weighting change the global average story? | PARKED - not built, needs population data (see Stage 4a) |
-| 9 | `interactive_dashboard/09_dashboard` | All threads | Can the reader explore the whole argument themselves? | Linked Year/Sex/Region filters driving 2-3 charts together |
+| 4 | `thread2_convergence/04_convergence_trend` | 2 - Convergence | Is the gap between countries widening or narrowing? | CV-over-time line chart, 3 diseases, + 10-year linear extrapolation |
+| 5 | `thread3_equality_hypothesis/05_equality_scatter` | 3 - Equality Hypothesis | Does income EQUALITY explain who stays thin? | Obesity residual vs. Gini scatter - shows the NULL result honestly |
+| 6 | `thread4_access_hypothesis/06_access_scatter` | 4 - Access Hypothesis | Does healthcare ACCESS explain who escapes high BP? | BP residual vs. UHC scatter - shows the CONFIRMED result |
+| 7 | `supplementary_overview/07_risk_leaderboard` | Scene-setting | Which specific countries anchor the highest/lowest risk? | Diverging Top-10/Bottom-10 bar chart, composite Risk Index |
+| 8 | `thread3_equality_hypothesis/08_equality_followup` | 3 - Equality Hypothesis (follow-up) | If not equality, then sugar/alcohol/inactivity? | 3-panel comparison, anomaly countries only - the self-correction chart |
+| 9 | `thread5_gender/09_gender_gap` | 5 - Gender | Is the male/female gap widening or narrowing? | Diverging bars (1980 vs 2014) + full trend line, side by side |
+| 10 | `interactive_dashboard/10_dashboard` | All threads | Can the reader explore the whole argument themselves? | NOT YET BUILT - linked Year/Region filters driving multiple charts |
 
-### How to build/view any chart
+### Exact runnable code for every chart
+
+Each block below is copy-paste runnable on its own from the `project/`
+folder (each one re-applies the theme and reads only the CSVs it needs).
+All of them together are also in `src/charts/build_all_charts.py` - run
+`python3 src/charts/build_all_charts.py` to rebuild everything in one go.
+
+**Chart 1 - Choropleth**
 ```python
 import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
 import pandas as pd
 from charts.chart_theme import register_theme
-from charts.chart_01_choropleth import build_choropleth
+from charts.chart_01_choropleth import build_choropleth, build_choropleth_static
 
-register_theme()                      # apply the design system - do this once
+register_theme()
 combined = pd.read_csv('data/final/combined_panel_with_risk_index.csv')
-chart = build_choropleth(combined)
-chart.save('visuals/thread1_typology/01_choropleth.html')   # interactive - open in any browser
-chart.save('visuals/thread1_typology/01_choropleth.png', ppi=150)  # static - for the written report
+
+build_choropleth(combined).save('visuals/thread1_typology/01_choropleth.html')
+build_choropleth_static(combined, year=2014, metric_label="Metabolic Risk Index") \
+    .save('visuals/thread1_typology/01_choropleth_static_2014.png', ppi=150)
 ```
 
-Each chart module lives in `src/charts/` and exposes a `build_<name>()`
-function - the module docstring explains the specific design choices made
-for that chart.
+**Chart 2 - Cluster scatter (PCA)**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_02_cluster_scatter import build_cluster_scatter
+from typology_features import build_trajectory_feature_table
+from typology_clustering import scale_features
 
-| # | Code file | Status |
-|---|---|---|
-| 1 | `chart_01_choropleth.py` | Done |
-| 2 | `chart_02_cluster_scatter.py` | Done |
-| 3 | `chart_03_trajectory_small_multiples.py` | Done |
-| 4-9 | remaining charts | Not yet built |
+register_theme()
+combined = pd.read_csv('data/final/combined_panel_with_risk_index.csv')
+country_typology = pd.read_csv('data/analysis/country_typology.csv')
+features, _ = build_trajectory_feature_table(combined)
+scaled, _ = scale_features(features)
+
+chart = build_cluster_scatter(country_typology, scaled)
+chart.save('visuals/thread1_typology/02_cluster_scatter.html')
+chart.save('visuals/thread1_typology/02_cluster_scatter.png', ppi=150)
+```
+
+**Chart 3 - Trajectory small multiples**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_03_trajectory_small_multiples import build_trajectory_small_multiples
+
+register_theme()
+combined = pd.read_csv('data/final/combined_panel_with_risk_index.csv')
+country_typology = pd.read_csv('data/analysis/country_typology.csv')
+
+chart = build_trajectory_small_multiples(combined, country_typology)
+chart.save('visuals/thread1_typology/03_trajectory_small_multiples.html')
+chart.save('visuals/thread1_typology/03_trajectory_small_multiples.png', ppi=150)
+```
+
+**Chart 4 - Convergence trend**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_04_convergence_trend import build_convergence_trend_chart
+
+register_theme()
+cv_by_year = pd.read_csv('data/analysis/convergence_cv_by_year.csv')
+trend_extrapolation = pd.read_csv('data/analysis/convergence_trend_extrapolation.csv')
+
+chart = build_convergence_trend_chart(cv_by_year, trend_extrapolation)
+chart.save('visuals/thread2_convergence/04_convergence_trend.html')
+chart.save('visuals/thread2_convergence/04_convergence_trend.png', ppi=150)
+```
+
+**Chart 5 - Equality Hypothesis scatter**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_05_equality_scatter import build_equality_scatter
+
+register_theme()
+equality_results = pd.read_csv('data/analysis/equality_hypothesis_results.csv')
+
+chart = build_equality_scatter(equality_results)
+chart.save('visuals/thread3_equality_hypothesis/05_equality_scatter.html')
+chart.save('visuals/thread3_equality_hypothesis/05_equality_scatter.png', ppi=150)
+```
+
+**Chart 6 - Access Hypothesis scatter**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_06_access_scatter import build_access_scatter
+
+register_theme()
+access_results = pd.read_csv('data/analysis/access_hypothesis_results.csv')
+
+chart = build_access_scatter(access_results)
+chart.save('visuals/thread4_access_hypothesis/06_access_scatter.html')
+chart.save('visuals/thread4_access_hypothesis/06_access_scatter.png', ppi=150)
+```
+
+**Chart 7 - Risk leaderboard (supplementary)**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_07_risk_leaderboard import build_risk_leaderboard
+
+register_theme()
+combined = pd.read_csv('data/final/combined_panel_with_risk_index.csv')
+
+chart = build_risk_leaderboard(combined, year=2014, n=10)
+chart.save('visuals/supplementary_overview/07_risk_leaderboard.html')
+chart.save('visuals/supplementary_overview/07_risk_leaderboard.png', ppi=150)
+```
+
+**Chart 8 - Equality follow-up (self-correction story)**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_08_equality_followup import build_equality_followup_chart
+
+register_theme()
+followup = pd.read_csv('data/analysis/equality_followup_wealthy_cluster.csv')
+
+chart = build_equality_followup_chart(followup)
+chart.save('visuals/thread3_equality_hypothesis/08_equality_followup.html')
+chart.save('visuals/thread3_equality_hypothesis/08_equality_followup.png', ppi=150)
+```
+
+**Chart 9 - Gender gap (diverging bars + trend)**
+```python
+import sys; sys.path.insert(0, 'src'); sys.path.insert(0, '.')
+import pandas as pd
+from charts.chart_theme import register_theme
+from charts.chart_09_gender_gap import build_gender_gap_chart
+
+register_theme()
+gender_gap = pd.read_csv('data/analysis/gender_gap_by_year.csv')
+
+chart = build_gender_gap_chart(gender_gap)
+chart.save('visuals/thread5_gender/09_gender_gap.html')
+chart.save('visuals/thread5_gender/09_gender_gap.png', ppi=150)
+```
+
+**Or just rebuild everything at once:**
+```bash
+python3 src/charts/build_all_charts.py
+```
 
 ---
 
-## NEXT STEP: Continue building the remaining Altair visuals
+## NEXT STEP: The interactive linked dashboard (Chart 10, built last)
 
-Population-weighted comparison chart: dropped for now (parked, no
-population data sourced yet) - can revisit later if needed.
+All 9 thread-specific/supplementary charts are done. The only remaining
+visual is the final interactive dashboard: Year/Region filters driving
+2-3 of the existing charts together in one linked view, built last because
+it reuses the individual charts rather than introducing new analysis.
 
-Visuals #1-3 (Thread 1: choropleth, cluster scatter, trajectory small
-multiples) are complete. Remaining visuals to build, in order:
-- Convergence line chart with trend extrapolation (Thread 2)
-- Equality/Access hypothesis scatters (Threads 3/4)
-- Sex-gap diverging bar + trend line (Thread 5)
-- Interactive linked dashboard (built last)
+Population-weighted comparison chart: still parked (no population data
+sourced) - can revisit later if needed.
 
-The Stage 5 findings (equality follow-up, cluster robustness, income-group
-convergence breakdown, cluster-level gender gap) are additional depth for
-the written report's discussion sections - they don't need their own
-dedicated Altair visual, but the convergence-by-income-group and
-gender-gap-by-cluster tables are good candidates for a small supplementary
-chart if there's room.
+Possible further additions (not required, but available if more visuals
+are wanted for the report, per the "explore as much as possible" goal):
+- A small chart for the convergence-by-income-group breakdown (Stage 5)
+- A small chart for the gender-gap-by-cluster breakdown (Stage 5)
