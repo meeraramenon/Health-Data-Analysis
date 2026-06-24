@@ -8,7 +8,9 @@ __pycache__/
 *.pyd
 *.pyo
 
-# Distribution / packaging
+# ==========================================
+# Distribution / Packaging
+# ==========================================
 .Python
 build/
 dist/
@@ -26,7 +28,9 @@ pip-wheel-metadata/
 *.egg-info/
 *.egg
 
+# ==========================================
 # Virtual Environments
+# ==========================================
 .venv/
 venv/
 env/
@@ -34,7 +38,9 @@ ENV/
 env.bak/
 venv.bak/
 
-# Environment variables / Secrets
+# ==========================================
+# Environment Variables / Secrets
+# ==========================================
 .env
 .env.*
 !.env.example
@@ -44,12 +50,16 @@ venv.bak/
 *.pfx
 *.p12
 
+# ==========================================
 # Logs
+# ==========================================
 *.log
 logs/
 log/
 
+# ==========================================
 # Coverage / Testing
+# ==========================================
 .coverage
 .coverage.*
 .cache/
@@ -61,32 +71,48 @@ coverage.xml
 *.cover
 *.py,cover
 
-# Type checking
+# ==========================================
+# Type Checking
+# ==========================================
 .mypy_cache/
 .pyre/
 .pytype/
 
+# ==========================================
 # Linting
+# ==========================================
 .ruff_cache/
 
+# ==========================================
 # Jupyter
+# ==========================================
 .ipynb_checkpoints/
 
+# ==========================================
 # Documentation
+# ==========================================
 docs/_build/
 
+# ==========================================
 # PyInstaller
+# ==========================================
 *.manifest
 *.spec
 
+# ==========================================
 # Cython
+# ==========================================
 cython_debug/
 
+# ==========================================
 # SQLite
+# ==========================================
 *.sqlite3
 *.db
 
-# Temporary files
+# ==========================================
+# Temporary Files
+# ==========================================
 tmp/
 temp/
 *.tmp
@@ -95,59 +121,48 @@ temp/
 *.swo
 *~
 
+# ==========================================
 # IDEs
+# ==========================================
 .vscode/
 .idea/
 *.iml
+*.code-workspace
 
-# macOS
-.DS_Store
-
-# Windows
-Thumbs.db
-Desktop.ini
-
-# Linux
-.directory
-
-# Git merge files
-*.orig
-
+# ==========================================
 # Claude Code
+# ==========================================
 .claude/
 .claude-cache/
 
-# Local configuration
+# ==========================================
+# Local Configuration
+# ==========================================
 .local/
 config.local.*
 settings.local.*
-
-# Cache
-.cache/
 .python-version
 
-# Poetry
+# ==========================================
+# Package Managers
+# ==========================================
 poetry.lock
-
-# Pipenv
 Pipfile.lock
-
-# UV
 .uv/
 uv.lock
-
-# Hatch
 .hatch/
-
-# PDM
 .pdm-python
 .pdm-build/
 
-# Ruff
-.ruff_cache/
+# ==========================================
+# Operating System Files
+# ==========================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+.directory
 
-# PyCharm
-.idea/
-
-# VS Code workspace
-*.code-workspace
+# ==========================================
+# Git Merge Files
+# ==========================================
+*.orig
