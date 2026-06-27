@@ -79,6 +79,117 @@ codes instead. Full audit trail in `logs/`.
 
 ---
 
+## STAGE 1b: How each external dataset was used (plain-language)
+
+This section answers, in simple terms: what each external file contained,
+how it was joined, what cleaning happened, and — most importantly — how
+years with no value were treated. **The golden rule everywhere: a missing
+value is left missing (blank/NaN). Nothing is ever invented to fill a gap.**
+
+Every external file is joined the same way: a **LEFT JOIN on the ISO3
+country code** (and on Year, where the data varies by year). "Left join"
+means the 200-country health panel is the anchor — every one of its rows is
+kept no matter what, and external data is attached where it exists. Where it
+doesn't exist, that cell is blank.
+
+### The four external datasets at a glance
+
+| Data | Years in the file | How it's joined | How it's used | Missing years handled by |
+|---|---|---|---|---|
+| **Gini (inequality)** | 1960–2025, but very sparse per country | One **single snapshot value per country** (not year-by-year) | Thread 3 equality test | Not applicable — see below |
+| **UHC (healthcare access)** | 2000–2023 | By country **and year** | Thread 4 access test | Carry-back before 2000, flagged |
+| **Income Group** | 1987–present (historical file) | By country **and year** | Wealth-level control / grouping | Carry-back before 1987, flagged; current-year file as last-resort fallback |
+| **Sugar / Alcohol / Inactivity** | 1970–2013 / 2000–2022 | Single snapshot per country | Stage 5 follow-up only | Not extended — real dated snapshot only |
+
+### Gini index — used as ONE snapshot per country, not a time series
+Gini is reported very sparsely: most countries are only surveyed every few
+years, so there is no continuous annual series to use. So instead of trying
+to match it year-by-year, the pipeline takes **each country's single most
+recent available Gini value** and uses that one number for that country.
+Because it's a single snapshot, there are no "missing years" to fill — the
+question of carry-back never arises. The year that snapshot came from is
+stored in a `Gini_Year` column so it's always auditable. 169 of 200
+countries have a Gini value; the other 31 are left blank.
+
+### UHC index — joined by year, with carry-back before 2000
+UHC genuinely varies year to year and is used that way: it's joined on
+**both country and year**, so 2005's BP sits next to 2005's UHC. But UHC
+data only starts in **2000**, while the health panel goes back to 1975. For
+the pre-2000 years, each country's **earliest real UHC value (its year-2000
+value) is carried backward** to fill 1975–1999. This is a deliberate,
+stated assumption — UHC reflects slow-moving health-system structure, not
+something that swings annually — and crucially, **every carried-back row is
+flagged `True` in the `UHC_Index_Is_Carried_Back` column**, so anyone can
+filter those out and use only genuinely-measured values.
+
+### Income Group — the confusing one, explained step by step
+This is genuinely the trickiest, so here it is slowly.
+
+**What the data is:** the World Bank sorts every country into one of four
+wealth tiers each year — Low, Lower-middle, Upper-middle, or High income.
+The historical file (called OGHIST) records this tier **for every year back
+to 1987**. So unlike Gini, income group IS a real year-by-year series, and
+it's used that way — joined on **both country and year**.
+
+**Why a country's tier changes over time:** because countries genuinely move
+between tiers as their economies grow or shrink. For example, in the actual
+data, **Albania** appears as Lower-middle income in the 1980s, briefly drops
+to Low income in the mid-1990s, then climbs to Upper-middle income by 2010 —
+three different tiers across the period, each matched to the correct year.
+
+**How missing years are handled — two separate mechanisms:**
+
+1. **Years before 1987 (carry-back).** The health panel starts in 1975, but
+   the income file starts in 1987. So for 1975–1986, each country's
+   **earliest real classification (its 1987 tier) is carried backward**.
+   Example from the real data: the USA is recorded as "High income" from
+   1987 onward; for 1975–1986 it's carried back as "High income" too, and
+   **every one of those carried-back rows is flagged `True` in
+   `Income_Group_Is_Carried_Back`**. In total, 2,613 rows used this
+   carry-back; 5,787 rows are real reported values.
+
+2. **Countries missing from the historical file entirely (current-year
+   fallback).** A few very small territories were never tracked back in
+   1987. For those — and ONLY those — the pipeline falls back to the
+   country's **current (2025) classification**, flagged separately in
+   `Income_Group_Used_Current_Fallback`. In our 200 countries this fallback
+   ended up being needed for 0 rows (the three with no history at all —
+   Cook Islands, Niue, Tokelau — had no current value either, so they stay
+   blank), but the mechanism exists and is logged in
+   `logs/05_income_group_fallback.log`.
+
+**Cleaning quirks handled in the income file:** the source uses ".." to mean
+"not classified that year" (converted to blank, not guessed), and a couple
+of cells carried a footnote asterisk (e.g. "LM*" on Yemen's 1987–88 rows)
+which was stripped, since the asterisk is a footnote marker, not a different
+category.
+
+**So, in one sentence:** income group is a real per-year tier joined on
+country-and-year; years before 1987 are filled by carrying each country's
+1987 tier backward (flagged); countries absent from the whole file fall back
+to today's tier (flagged); everything unfillable stays blank.
+
+### Sugar / Alcohol / Inactivity (Stage 5 follow-up) — real snapshots, no filling
+Covered in detail in Stage 5 and `CLAUDE.md`: these use a single real dated
+value per country (2013 for sugar/alcohol, each country's latest real year —
+2022 — for inactivity), with the exact year exposed in `Sugar_Alcohol_Year`
+and `Inactivity_Year`. **No carry-back, no interpolation** — because they're
+only used for a small qualitative comparison, not a year-by-year series.
+
+### Why two different strategies (snapshot vs. carry-back)?
+- **Snapshot** (Gini, follow-up diet data): used when the data is too sparse
+  for a real annual series, OR when only a single comparison value per
+  country is needed. The value is whatever was actually measured, dated.
+- **Carry-back** (UHC, income group): used when the data IS a real annual
+  series that simply starts later than 1975. Each country's earliest real
+  value extends backward to cover the gap, and **every filled row is flagged**
+  so it can be excluded.
+
+Both strategies share the same discipline: real values only, every
+assumption flagged in its own column, nothing silently invented.
+
+---
+
 ## STAGE 2: Typology — Thread 1 (complete)
 
 Converts each country's 1980-2014 trajectory into 12 numeric features
@@ -240,8 +351,11 @@ more rigorous than the sample supports).
 **New data used:**
 - FAO Food Balance Sheets (`consumption.xlsx`) -> Sugar & Sweeteners and
   Alcoholic Beverages supply, kg/capita/year, 1970-2013
+  Link: https://www.fao.org/faostat/en/?utm_source=chatgpt.com#data/FBSH
 - WHO physical inactivity (`physical_inactivity.csv`) -> % adults
   insufficiently active, 2000-2022
+  Link: https://www.who.int/data/gho/data/indicators/indicator-details/GHO/prevalence-of-insufficient-physical-activity-among-adults-aged-18-years-%28crude-estimate%29-%28-%29?utm_source=chatgpt.com
+  
 
 **Result: none of the three explain it either.** Sugar and alcohol don't
 cleanly separate Japan/Korea from UK/US. Physical inactivity runs
@@ -318,7 +432,8 @@ python3 src/hypothesis_main.py       # Stage 3
 python3 src/convergence_main.py      # Stage 4a
 python3 src/gender_main.py           # Stage 4b
 # Stage 5 (equality follow-up + free exploration) - see equality_followup_exploration.py
-# and free_exploration.py for the functions; no single orchestrator script yet.
+# and free_exploration.py for the functions; 
+# chart/build_all_charts.py single orchestrator script to get all visuals.
 ```
 
 ---
@@ -630,17 +745,11 @@ python3 src/charts/build_all_charts.py
 
 ---
 
-## NEXT STEP: All analysis and all 12 visuals are complete
+## My Future plan
 
 Population-weighted comparison chart: still parked (no population data
 sourced) - can revisit later if needed.
 
-Everything else in the locked plan is done: 5 analytical threads, 1
-targeted follow-up, 3 free-exploration checks, and 12 Altair visuals
-(9 core + 1 self-correction story chart + 2 supplementary depth charts),
-all interactive where it adds value, all colourblind-safe, all titled by
-finding rather than chart type.
+Try integrating more diverse data like migration, heredity, urbanization, population, oil and meat intake etc.
 
-**The only remaining step is writing the ~4000-word report itself**,
-using this README, `CLAUDE.md`, and the `data/analysis/` CSVs as the
-factual source of truth for every number quoted.
+
