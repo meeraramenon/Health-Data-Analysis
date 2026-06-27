@@ -1,0 +1,2 @@
+Adjusted Rand Index (k-means vs hierarchical, k=5): 0.684
+Interpretation: strong agreement - the typology is robust to choice of algorithm
