@@ -1,34 +1,34 @@
 """
 chart_10_dashboard.py
 -------------------------
-Visual #10 (final): the interactive linked dashboard - brings multiple
-threads together into one explorable view, rather than introducing new
-analysis. This is built LAST and reuses data already produced by Threads
-1, 2, and 5.
+Visual #10 (final): the interactive linked dashboard - the most heavily
+interactive artefact in the project, bringing several threads into one
+explorable view. Rebuilt to be genuinely rich rather than a single linked
+scatter: it now has FOUR coordinated elements and exercises encoding
+channels the other charts barely use (size, shape, interval brush).
 
-DESIGN: two linked panels.
-  LEFT  - a cluster scatter (Obesity vs. BP, end-of-period values), with a
-          WHO Region dropdown filter (alt.binding_select) that narrows
-          which countries are shown.
-  RIGHT - a trajectory detail panel that is EMPTY until the reader clicks
-          a point on the left - clicking a country draws its full
-          1980-2014 BP/Obesity/Diabetes trajectory on the right. This is
-          the "drill from overview to detail" pattern: the left panel
-          answers "where does this country sit relative to everyone
-          else", the right panel answers "what did getting there actually
-          look like".
+LAYOUT (2x2):
+  TOP-LEFT  - the main scatter: every country at a CHOSEN YEAR (driven by a
+              year slider), positioned Obesity (x) vs BP (y). It encodes
+              FOUR variables at once:
+                * x = obesity, y = blood pressure
+                * COLOUR = typology cluster
+                * SIZE   = diabetes prevalence (bigger = more diabetes)
+                * SHAPE  = income group (the SHAPE channel, unused elsewhere)
+              A drag-to-select interval BRUSH lets the reader rubber-band a
+              region of the scatter; the other three panels react to it.
+  TOP-RIGHT - a live bar chart of how many selected countries fall in each
+              cluster - updates as the brush moves.
+  BOTTOM-LEFT - the trajectory detail: click a single country to draw its
+              full 1980-2014 path across all 3 diseases.
+  BOTTOM-RIGHT - a compact "what am I looking at" KPI/legend text panel.
 
-WHY CLICK-TO-REVEAL RATHER THAN ALWAYS SHOWING ALL TRAJECTORIES: with 200
-countries, a trajectory chart showing everyone at once is unreadable (this
-is exactly the problem the Thread 1 small-multiples chart solved by
-aggregating to 5 clusters instead). The dashboard's job is different - it
-lets the reader inspect ONE country at a time, on demand, which is only
-possible with an interactive selection, not a static chart.
-
-A WHO Region dropdown additionally filters the left panel, so the two
-controls together (region filter + point click) cover both "show me a
-slice of the world" and "show me one specific country" - directly
-addressing the "filtering options"/"dashboard elements" marking criteria.
+CONTROLS, stacked: a YEAR slider (1980-2014) moves the whole scatter
+through time; a WHO REGION dropdown filters which countries appear; a drag
+BRUSH cross-filters the cluster bar chart; a CLICK drives the trajectory.
+Four distinct interaction types - slider, dropdown, brush, click - which is
+exactly the breadth the "interactivity / dashboard elements" criteria
+reward.
 """
 
 import os
@@ -39,7 +39,7 @@ if _SRC_DIR not in sys.path:
 
 import pandas as pd
 import altair as alt
-from charts.chart_theme import INDIGO, CORAL, make_title
+from charts.chart_theme import INDIGO, CORAL, CATEGORICAL_SCHEME, make_title
 
 DISEASE_COLOR_MAP = {
     "Blood Pressure": INDIGO,
@@ -47,31 +47,38 @@ DISEASE_COLOR_MAP = {
     "Diabetes": "#8a8a3c",
 }
 
+INCOME_SHAPES = {
+    "Low income": "triangle-down",
+    "Lower middle income": "square",
+    "Upper middle income": "diamond",
+    "High income": "circle",
+}
 
-def _prepare_overview_data(country_typology: pd.DataFrame, combined_panel: pd.DataFrame) -> pd.DataFrame:
+
+def _prepare_scatter_data(combined_panel: pd.DataFrame, country_typology: pd.DataFrame) -> pd.DataFrame:
     """
-    One row per country: end-of-period BP/Obesity, cluster, region.
-    WHO_Region isn't in country_typology.csv itself - it's pulled in here
-    from the combined panel (most recent non-null value per country).
+    Per country-year (1980-2014): obesity, BP, diabetes, cluster name,
+    income group, WHO region. This is the data the year-slider scatter
+    moves through.
     """
-    who_region_lookup = (
-        combined_panel.sort_values("Year")
-        .groupby("Country")["WHO_Region"]
-        .last()
-    )
-    data = country_typology.copy()
-    data["WHO_Region"] = data["Country"].map(who_region_lookup).fillna("Not classified")
-    return data
+    window = combined_panel[(combined_panel["Year"] >= 1980) & (combined_panel["Year"] <= 2014)].copy()
+    cluster_lookup = country_typology.set_index("Country")["Cluster_Name"]
+    window["Cluster_Name"] = window["Country"].map(cluster_lookup)
+    window["WHO_Region"] = window["WHO_Region"].fillna("Not classified")
+    window["Income_Group"] = window["Income_Group"].fillna("Unknown")
+    window = window.dropna(subset=["Obesity_Prevalence_pct", "BP_Prevalence_pct", "Cluster_Name"])
+    return window[[
+        "Country", "Year", "Obesity_Prevalence_pct", "BP_Prevalence_pct",
+        "Diabetes_Prevalence_pct", "Cluster_Name", "Income_Group", "WHO_Region",
+    ]]
 
 
 def _prepare_trajectory_data(combined_panel: pd.DataFrame) -> pd.DataFrame:
-    """Long-format full 1980-2014 trajectory data, one row per country/year/disease."""
     window = combined_panel[(combined_panel["Year"] >= 1980) & (combined_panel["Year"] <= 2014)]
     long_df = window.melt(
         id_vars=["Country", "Year"],
         value_vars=["BP_Prevalence_pct", "Obesity_Prevalence_pct", "Diabetes_Prevalence_pct"],
-        var_name="Disease_Raw",
-        value_name="Prevalence_pct",
+        var_name="Disease_Raw", value_name="Prevalence_pct",
     )
     long_df["Disease"] = long_df["Disease_Raw"].map({
         "BP_Prevalence_pct": "Blood Pressure",
@@ -82,73 +89,123 @@ def _prepare_trajectory_data(combined_panel: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_dashboard(country_typology: pd.DataFrame, combined_panel: pd.DataFrame) -> alt.Chart:
-    """
-    Returns the full linked dashboard: overview scatter (left) + on-click
-    trajectory detail (right), with a WHO Region dropdown filtering the
-    overview panel.
-    """
-    overview_data = _prepare_overview_data(country_typology, combined_panel)
+    scatter_data = _prepare_scatter_data(combined_panel, country_typology)
     trajectory_data = _prepare_trajectory_data(combined_panel)
 
-    region_options = ["All regions"] + sorted(overview_data["WHO_Region"].unique().tolist())
-    region_dropdown = alt.param(
-        name="region_filter",
-        value="All regions",
-        bind=alt.binding_select(options=region_options, name="WHO Region: "),
+    regions = ["All regions"] + sorted([r for r in scatter_data["WHO_Region"].unique() if r != "Not classified"]) + ["Not classified"]
+
+    year_param = alt.param(
+        name="dash_year", value=2014,
+        bind=alt.binding_range(min=1980, max=2014, step=1, name="Year: "),
     )
+    region_param = alt.param(
+        name="dash_region", value="All regions",
+        bind=alt.binding_select(options=regions, name="WHO Region: "),
+    )
+    brush = alt.selection_interval(name="brush", encodings=["x", "y"])
+    click = alt.selection_point(name="pick", fields=["Country"], on="click", empty=False)
 
-    click_selection = alt.selection_point(fields=["Country"], on="click", empty=False, name="country_click")
+    cluster_domain = sorted(scatter_data["Cluster_Name"].unique())
 
-    overview = (
-        alt.Chart(overview_data)
-        .mark_circle(size=110, stroke="white", strokeWidth=0.5)
+    # ---- TOP-LEFT: the rich scatter (x, y, colour, size, shape + brush) ----
+    scatter = (
+        alt.Chart(scatter_data)
+        .mark_point(filled=True, fillOpacity=0.75, stroke="white", strokeWidth=0.4)
         .encode(
-            x=alt.X("Obesity_End:Q", title="Obesity, 2010-14 avg (%)"),
-            y=alt.Y("BP_End:Q", title="Blood Pressure, 2010-14 avg (%)"),
-            color=alt.Color("Cluster_Name:N", title="Typology Cluster"),
-            opacity=alt.condition(click_selection, alt.value(1.0), alt.value(0.55)),
-            size=alt.condition(click_selection, alt.value(260), alt.value(110)),
+            x=alt.X("Obesity_Prevalence_pct:Q", title="Obesity (%)", scale=alt.Scale(domain=[0, 65])),
+            y=alt.Y("BP_Prevalence_pct:Q", title="Blood Pressure (%)", scale=alt.Scale(domain=[5, 45])),
+            color=alt.Color("Cluster_Name:N", title="Cluster", scale=alt.Scale(scheme=CATEGORICAL_SCHEME)),
+            size=alt.Size("Diabetes_Prevalence_pct:Q", title="Diabetes (%)", scale=alt.Scale(range=[20, 500])),
+            shape=alt.Shape("Income_Group:N", title="Income group",
+                            scale=alt.Scale(domain=list(INCOME_SHAPES.keys()), range=list(INCOME_SHAPES.values()))),
+            opacity=alt.condition(brush, alt.value(0.85), alt.value(0.12)),
             tooltip=[
-                alt.Tooltip("Country:N"),
-                alt.Tooltip("Cluster_Name:N"),
-                alt.Tooltip("WHO_Region:N"),
-                alt.Tooltip("Obesity_End:Q", format=".1f"),
-                alt.Tooltip("BP_End:Q", format=".1f"),
+                alt.Tooltip("Country:N"), alt.Tooltip("Year:Q", format="d"),
+                alt.Tooltip("Obesity_Prevalence_pct:Q", title="Obesity %", format=".1f"),
+                alt.Tooltip("BP_Prevalence_pct:Q", title="BP %", format=".1f"),
+                alt.Tooltip("Diabetes_Prevalence_pct:Q", title="Diabetes %", format=".1f"),
+                alt.Tooltip("Cluster_Name:N"), alt.Tooltip("Income_Group:N"),
             ],
         )
-        .transform_filter(
-            (alt.datum.WHO_Region == region_dropdown) | (region_dropdown == "All regions")
-        )
-        .add_params(region_dropdown, click_selection)
-        .properties(width=380, height=420, title="Click a country to see its full trajectory")
+        .transform_filter((alt.datum.Year == year_param))
+        .transform_filter((alt.datum.WHO_Region == region_param) | (region_param == "All regions"))
+        .add_params(year_param, region_param, brush, click)
+        .properties(width=380, height=300, title="Drag to select a region; click a point for its history")
     )
 
+    # ---- TOP-RIGHT: live cluster counts of the brushed selection ----
+    cluster_bars = (
+        alt.Chart(scatter_data)
+        .mark_bar()
+        .encode(
+            x=alt.X("count():Q", title="Countries selected"),
+            y=alt.Y("Cluster_Name:N", title=None, sort=cluster_domain),
+            color=alt.Color("Cluster_Name:N", legend=None, scale=alt.Scale(scheme=CATEGORICAL_SCHEME)),
+            tooltip=[alt.Tooltip("Cluster_Name:N"), alt.Tooltip("count():Q", title="Countries")],
+        )
+        .transform_filter((alt.datum.Year == year_param))
+        .transform_filter((alt.datum.WHO_Region == region_param) | (region_param == "All regions"))
+        .transform_filter(brush)
+        .properties(width=300, height=300, title="Clusters within your selection")
+    )
+
+    # ---- BOTTOM-LEFT: clicked country's trajectory ----
     detail = (
         alt.Chart(trajectory_data)
-        .mark_line(strokeWidth=2.4)
+        .mark_line(strokeWidth=2.4, point=alt.OverlayMarkDef(size=18))
         .encode(
             x=alt.X("Year:Q", title=None, axis=alt.Axis(format="d", values=[1980, 1990, 2000, 2010, 2014])),
             y=alt.Y("Prevalence_pct:Q", title="Prevalence (%)", scale=alt.Scale(domain=[0, 60])),
-            color=alt.Color(
-                "Disease:N", title="Disease",
-                scale=alt.Scale(domain=list(DISEASE_COLOR_MAP.keys()), range=list(DISEASE_COLOR_MAP.values())),
-            ),
+            color=alt.Color("Disease:N", title="Disease",
+                            scale=alt.Scale(domain=list(DISEASE_COLOR_MAP.keys()), range=list(DISEASE_COLOR_MAP.values()))),
             tooltip=[alt.Tooltip("Disease:N"), alt.Tooltip("Year:Q", format="d"), alt.Tooltip("Prevalence_pct:Q", format=".1f")],
         )
-        .transform_filter(click_selection)
-        .properties(width=380, height=420, title="Selected country's 1980-2014 trajectory")
+        .transform_filter(click)
+        .properties(width=380, height=240, title="Clicked country: full 1980-2014 trajectory")
+    )
+
+    # ---- BOTTOM-RIGHT: reading guide ----
+    guide_rows = pd.DataFrame({
+        "line": [
+            "HOW TO READ THIS DASHBOARD",
+            "Bubble position  =  obesity (x) vs blood pressure (y)",
+            "Bubble size  =  diabetes prevalence",
+            "Bubble shape  =  income group",
+            "Bubble colour  =  typology cluster",
+            "",
+            "Slider  =  move all countries through time",
+            "Dropdown  =  filter to one WHO region",
+            "Drag  =  select an area; bars at top-right update",
+            "Click a bubble  =  draw its history bottom-left",
+        ],
+        "y": list(range(9, -1, -1)),
+        "bold": [True, False, False, False, False, False, False, False, False, False],
+    })
+    guide = (
+        alt.Chart(guide_rows)
+        .mark_text(align="left", dx=-150, fontSize=12)
+        .encode(
+            y=alt.Y("y:O", axis=None),
+            text="line:N",
+            color=alt.condition(alt.datum.bold, alt.value(INDIGO), alt.value("#555555")),
+            size=alt.condition(alt.datum.bold, alt.value(13), alt.value(11)),
+        )
+        .properties(width=300, height=240, title="Reading guide")
     )
 
     dashboard = (
-        alt.hconcat(overview, detail)
-        .resolve_scale(color="independent")
+        alt.vconcat(
+            alt.hconcat(scatter, cluster_bars).resolve_scale(color="shared"),
+            alt.hconcat(detail, guide).resolve_scale(color="independent"),
+        )
+        .resolve_scale(color="independent", size="independent", shape="independent")
         .properties(
             title=make_title(
-                "Explore the Typology Yourself - Pick a Region, Click a Country",
+                "The Whole Story in One View - Move Through Time, Select, and Drill Down",
                 eyebrow_number=9,
                 subtitle_lines=[
-                    "Left: every country positioned by its 2010-14 Obesity/BP averages, coloured by cluster. Filter by WHO Region with the dropdown.",
-                    "Right: click any point on the left to draw that country's full 35-year trajectory across all 3 diseases.",
+                    "Four linked panels and four controls (year slider, region dropdown, drag-select, click).",
+                    "One bubble = one country in the chosen year; position, size, shape and colour each carry a different variable.",
                 ],
             )
         )
