@@ -183,6 +183,16 @@ def build_chart_12_gender_gap_by_cluster():
     print("Chart 12 (gender gap by cluster, supplementary) saved.")
 
 
+def build_chart_13_temporal_heatmap():
+    from charts.chart_13_temporal_heatmap import build_temporal_heatmap
+    combined = pd.read_csv("data/final/combined_panel_with_risk_index.csv")
+
+    chart = build_temporal_heatmap(combined)
+    chart.save(f"{VISUALS_DIR}/supplementary_overview/13_temporal_heatmap.html")
+    chart.save(f"{VISUALS_DIR}/supplementary_overview/13_temporal_heatmap.png", ppi=150)
+    print("Chart 13 (temporal heatmap) saved.")
+
+
 if __name__ == "__main__":
     build_chart_01_choropleth()
     build_chart_02_cluster_scatter()
@@ -196,4 +206,5 @@ if __name__ == "__main__":
     build_chart_10_dashboard()
     build_chart_11_convergence_by_income()
     build_chart_12_gender_gap_by_cluster()
+    build_chart_13_temporal_heatmap()
     print("\nAll available charts rebuilt.")
